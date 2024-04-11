@@ -1,0 +1,49 @@
+openapi: "3.0.0"
+info:
+    title: JFR API
+    version: 1.0.0
+    description: API per la persistenza di dati JFR
+servers:
+    - url: http://localhost:8080
+paths:
+    /jfr:
+        post:
+            summary: Salva un nuovo file JFR
+            requestBody:
+                required: true
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            properties:
+                                file:
+                                    type: array
+                                    items:
+                                        type: string
+                                        format: binary
+                                commitValue:
+                                    type: string
+            responses:
+                '200':
+                    description: File salvato con successo
+                '400':
+                    description: Errore nel salvataggio del file
+                '500':
+                    description: Errore interno al server
+
+components:
+    schemas:
+        Jfr:
+            type: object
+            properties:
+                id:
+                    type: integer
+                name:
+                    type: string
+                path:
+                    type: string
+                size:
+                    type: integer
+                creationDate:
+                    type: string
+                    format: date-time
