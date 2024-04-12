@@ -19,7 +19,7 @@ PersistentJFR is a tool for collecting Java Flight Recorder (JFR) data from a ru
 
 1. Clone the repository
 2. Install the required Python packages by running `pip install -r requirements.txt`
-3. Compile the Kotlin code by running `./gradlew.bat installDist` (Windows) or `./gradlew installDist` (Linux/Mac)
+3. Compile the Kotlin code by running `./gradlew.bat installDist` (Windows) or `./gradlew installDist` (Linux/Mac) and followed by the name you want to assign to your database
 4. Run the server by running `./build/install/PersistentJFR/bin/PersistentJFR.bat` (Windows) or `./build/install/PersistentJFR/bin/PersistentJFR` (Linux/Mac)
 5. Open the web interface by navigating to `http://localhost:8080/swagger` in your web browser
 6. Upload one or more JFR files to import them into the database (remember to provide a commit value to group the files together)
