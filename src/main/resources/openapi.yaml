@@ -2,13 +2,13 @@ openapi: "3.0.0"
 info:
     title: JFR API
     version: 1.0.0
-    description: API per la persistenza di dati JFR
+    description: API for persisting JFR data
 servers:
     - url: http://localhost:8080
 paths:
     /jfr:
         post:
-            summary: Salva un nuovo file JFR
+            summary: Save a new JFR file
             requestBody:
                 required: true
                 content:
@@ -25,25 +25,13 @@ paths:
                                     type: string
             responses:
                 '200':
-                    description: File salvato con successo
+                    description: File saved successfully
                 '400':
-                    description: Errore nel salvataggio del file
+                    description: Error saving the file
                 '500':
-                    description: Errore interno al server
+                    description: Internal server error
 
 components:
     schemas:
-        Jfr:
+        JFR:
             type: object
-            properties:
-                id:
-                    type: integer
-                name:
-                    type: string
-                path:
-                    type: string
-                size:
-                    type: integer
-                creationDate:
-                    type: string
-                    format: date-time

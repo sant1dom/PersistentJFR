@@ -5,30 +5,30 @@ from tkinter import ttk
 import plotly.express as px
 import sys
 
-# Funzione per estrarre i dati e disegnare il grafico
+# Function to extract data and plot the graph
 def plot_graph(selected_table, selected_column, columns):
-    # Esegue la query per ottenere i dati
+    # Execute query to get the data
     c.execute(f'SELECT * FROM {selected_table}')
     rows = c.fetchall()
 
-    # Crea il DataFrame
+    # Create DataFrame
     columns = ['id_pk', 'commit_value', 'file'] + columns
     df = pd.DataFrame(rows, columns=columns)
 
-    # Disegna il grafico
+    # Plot the graph
     fig = px.violin(df, x='commit_value', y=selected_column, box=True, points='all',
                     title=f'{selected_table}-{selected_column} per Commit Value', hover_data=df.columns, color='commit_value')
 
     fig.show()
 
-    # Chiude la connessione
+    # Close connection
     conn.close()
 
 # GUI
 def update_columns_combobox(event):
     selected_table = tables_combobox.get()
     c.execute(f'PRAGMA table_info({selected_table})')
-    columns = [row[1] for row in c.fetchall()][3:]  # Rimuove le colonne id, commit_value e file
+    columns = [row[1] for row in c.fetchall()][3:]  # Remove id, commit_value, and file columns
     columns_combobox['values'] = columns
     return columns
 
@@ -49,32 +49,32 @@ x_cordinate = int((screen_width/2) - (window_width/2))
 y_cordinate = int((screen_height/2) - (window_height/2))
 
 root.geometry("{}x{}+{}+{}".format(window_width, window_height, x_cordinate, y_cordinate))
-root.title("PersistentJFR Analisi dei Dati ")
+root.title("PersistentJFR Data Analysis")
 root.resizable(False, False)
 
 
-# Connessione al database e recupero dei nomi delle tabelle
+# Connect to the database and retrieve table names
 conn = sqlite3.connect("./databases/"+sys.argv[1] + ".db")
 c = conn.cursor()
 c.execute("SELECT name FROM sqlite_master WHERE type='table'")
 tables = [row[0] for row in c.fetchall()]
 tables.sort()
 
-# Etichetta
-label = ttk.Label(root, text="Seleziona la tabella e la colonna da visualizzare")
+# Label
+label = ttk.Label(root, text="Select table and column to visualize")
 label.pack(pady=10)
 
-# Combobox per selezionare le tabelle
+# Combobox to select tables
 tables_combobox = ttk.Combobox(root, values=tables)
 tables_combobox.pack(pady=10)
 tables_combobox.bind("<<ComboboxSelected>>", update_columns_combobox)
 
-# Combobox per selezionare le colonne
+# Combobox to select columns
 columns_combobox = ttk.Combobox(root)
 columns_combobox.pack(pady=5)
 
-# Bottone per disegnare il grafico
-plot_button = ttk.Button(root, text="Disegna Grafico", command=plot_button_click)
+# Button to draw the graph
+plot_button = ttk.Button(root, text="Draw Graph", command=plot_button_click)
 plot_button.pack(pady=5)
 
 root.mainloop()

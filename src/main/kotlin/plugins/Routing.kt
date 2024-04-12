@@ -11,7 +11,7 @@ import processFile
 
 fun Application.configureRouting(args: Array<String>) {
     routing {
-        // Swagger UI per visualizzare la documentazione dell'API
+        // Swagger UI to visualize the OpenAPI documentation in the browser at /swagger
         swaggerUI(
             path = "/swagger",
             swaggerFile = "openapi.yaml"
@@ -22,7 +22,7 @@ fun Application.configureRouting(args: Array<String>) {
             val fileBytes: MutableList<ByteArray> = mutableListOf()
             var commitValue: String = ""
             val fileNames: MutableList<String> = mutableListOf()
-            // Processo i dati multipart
+
             multipartData.forEachPart { part ->
                 when (part) {
                     is PartData.FileItem -> {

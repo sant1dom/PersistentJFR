@@ -8,43 +8,43 @@ import java.sql.PreparedStatement
 import java.util.concurrent.atomic.AtomicInteger
 
 /***
- * Questa funzione si occupa di processare un file JFR e di inserire i dati nel database
+ * This function processes a JFR file and inserts the data into the database.
  *
- * @param file ByteArray contenente il file JFR
- * @param connection Connessione al database
- * @param commitValue Valore del commit
- * @param fileName Nome del file
+ * @param file ByteArray containing the JFR file
+ * @param connection Database connection
+ * @param commitValue Commit value
+ * @param fileName File name
  */
 
 fun processFile(file: ByteArray,
                 connection: Connection,
                 commitValue: String,
                 fileName: String
-                ) {
-    // Creo un file temporaneo per poter leggere i dati
+) {
+    // Create a temporary file to read the data
     val tempFile = File.createTempFile("recording", ".jfr")
     tempFile.writeBytes(file)
 
-    // Ottengo i tipi di eventi presenti nel file
+    // Get the event types present in the file
     val eventTypesLookUp = RecordingFile(tempFile.toPath()).readEventTypes()
 
-    connection.autoCommit = false // Inizio transazione
+    connection.autoCommit = false // Start transaction
 
     val insertStatements = mutableMapOf<String, PreparedStatement>()
 
     val validColumns= mutableMapOf<String, List<String>>()
 
-    // Per ogni tipologia di evento creo la tabella e la query di inserimento
+    // For each event type, create the table and insertion query
     eventTypesLookUp.forEach { eventType ->
         createAndInsertStatements(eventType, connection, insertStatements, validColumns)
     }
 
     val index = AtomicInteger(0)
-    // Leggo tutti gli eventi dal file e li inserisco nel database
+    // Read all events from the file and insert them into the database
     val events = RecordingFile.readAllEvents(tempFile.toPath())
     events.forEachIndexed { i, event ->
         val progress = (i + 1) * 100 / events.size
-        print("Processo evento $i di ${events.size} ")
+        print("Processing event $i of ${events.size} ")
         printProgressBar(progress)
 
         processEvent(event, validColumns, insertStatements, commitValue, fileName, index, connection)
@@ -52,21 +52,21 @@ fun processFile(file: ByteArray,
     insertStatements.values.forEach { it.executeBatch() }
 
     connection.commit()
-    connection.autoCommit = true // Fine transazione
+    connection.autoCommit = true // End transaction
 
-    println("File processato con successo")
+    println("File processed successfully")
     println("-".repeat(50))
     tempFile.delete()
 
 }
 
 /***
- * Questa funzione si occupa di stampare una progress bar a terminale per indicare lo stato di avanzamento
+ * This function prints a progress bar in the terminal to indicate the progress status.
  *
- * @param progress Progresso da indicare
+ * @param progress Progress to indicate
  */
 fun printProgressBar(progress: Int) {
-    val width = 20 // larghezza della barra
+    val width = 20 // width of the bar
     val percent = (progress / 100.0 * width).toInt()
     val bar = "[" + "=".repeat(percent) + ">".repeat(if (percent < width) 1 else 0) + ".".repeat(width - percent) + "]"
     print("$bar ($progress%) \r")
@@ -74,15 +74,15 @@ fun printProgressBar(progress: Int) {
 
 
 /***
- * Questa funzione si occupa di processare un evento dalla lista di eventi
+ * This function processes an event from the event list.
  *
- * @param event Evento da processare
- * @param validColumns Mappa che contiene le colonne valide per ogni tipologia di evento
- * @param insertStatements Mappa che contiene le query di inserimento per ogni tipologia di evento
- * @param commitValue Valore del commit
- * @param fileName Nome del file
- * @param index Indice per il batch
- * @param connection Connessione al database
+ * @param event Event to process
+ * @param validColumns Map containing valid columns for each event type
+ * @param insertStatements Map containing insertion queries for each event type
+ * @param commitValue Commit value
+ * @param fileName File name
+ * @param index Batch index
+ * @param connection Database connection
  */
 private fun processEvent(
     event: RecordedEvent,
@@ -93,11 +93,11 @@ private fun processEvent(
     index: AtomicInteger,
     connection: Connection
 ) {
-    // Controllo che l'evento sia tra quelli che mi interessano
+    // Check if the event is among those of interest
     if (event.eventType.name !in validColumns.keys) {
         return
     }
-    // Prendo solo le colonne numeriche che ho precedentemente selezionato
+    // Take only the numeric columns that were previously selected
     val columns =
         event.eventType.fields.filter { validColumns[event.eventType.name]?.contains(it.name) == true }.map { it.name }
     val tableName = event.eventType.name.replace(".", "_")
@@ -117,12 +117,12 @@ private fun processEvent(
 }
 
 /***
- * Questa funzione si occupa di creare la tabella e la query di inserimento per un tipo di evento
+ * This function creates the table and insertion query for an event type.
  *
- * @param eventType Tipo di evento
- * @param connection Connessione al database
- * @param insertStatements Mappa che contiene le query di inserimento per ogni tipologia di evento
- * @param validColumns Mappa che contiene le colonne valide per ogni tipologia di evento
+ * @param eventType Event type
+ * @param connection Database connection
+ * @param insertStatements Map containing insertion queries for each event type
+ * @param validColumns Map containing valid columns for each event type
  */
 private fun createAndInsertStatements(
     eventType: EventType,
@@ -130,15 +130,15 @@ private fun createAndInsertStatements(
     insertStatements: MutableMap<String, PreparedStatement>,
     validColumns: MutableMap<String, List<String>>
 ) {
-    // Seleziono solo le colonne numeriche (che sono quelle che mi permettono di fare analisi)
+    // Select only numeric columns (those that allow analysis)
     val columnNames = eventType.fields
         .filter { it.name != "startTime" && it.typeName in setOf("double", "long", "int", "float", "short", "byte") }
     val columnNamesQuery = columnNames.joinToString(", ") { "${it.name} ${if (it.typeName == "int" || it.typeName == "short" || it.typeName == "byte") "INTEGER" else "REAL"}" }
     if (columnNames.isNotEmpty()) {
-        // La replace si rende necessaria altrimenti il nome della tabella non è valido perché selezionerebbe il database jdk
+        // The replace is necessary otherwise the table name is not valid because it would select the jdk database
         val tableName = eventType.name.replace(".", "_")
 
-        // La replace si rende necessaria perché il nome della colonna non può essere "index"
+        // The replace is necessary because the column name cannot be "index"
         val createTableQuery =
             "CREATE TABLE IF NOT EXISTS $tableName (id_pk INTEGER PRIMARY KEY, commit_value TEXT, file TEXT, ${
                 columnNamesQuery.replace(
@@ -157,9 +157,9 @@ private fun createAndInsertStatements(
 }
 
 /***
- * Questa funzione si occupa di creare la connessione al database
+ * This function creates the connection to the database.
  *
- * @param databaseName Nome del database
+ * @param databaseName Database name
  */
 fun databaseConnection(databaseName: String): Connection? {
     val databaseFileName = "/databases/$databaseName.db"
@@ -167,7 +167,7 @@ fun databaseConnection(databaseName: String): Connection? {
     var connection: Connection? = null
     try {
         connection = DriverManager.getConnection(url)
-        println("Connessione al database avvenuta con successo")
+        println("Database connection successful")
         return connection
     } catch (e: Exception) {
         e.printStackTrace()
