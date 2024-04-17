@@ -4,6 +4,10 @@ import io.ktor.server.netty.*
 import plugins.configureRouting
 
 fun main(args: Array<String>) {
+    if (args.isEmpty()) {
+        println("Provide the name of the database file as the first argument")
+        return
+    }
     val server = embeddedServer(
         Netty,
         port = 8080,

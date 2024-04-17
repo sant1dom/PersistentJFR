@@ -36,3 +36,9 @@ tasks.withType<KotlinCompile> {
 application {
     mainClass.set("ApplicationKt")
 }
+
+ktor {
+    fatJar {
+        archiveFileName.set("PersistentJFR.jar")
+    }
+}

@@ -59,8 +59,8 @@ fun Application.configureRouting(args: Array<String>) {
                                     if (fileBytes.isNotEmpty()) " file_name: ${fileNames.joinToString()}" else "")
         }
 
-        get("/jfr") {
-            call.respondText("Welcome to JFR Processor")
+        get("/") {
+            call.respondText("Welcome to PersistentJFR")
         }
 
     }

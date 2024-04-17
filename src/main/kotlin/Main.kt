@@ -1,6 +1,10 @@
 import jdk.jfr.EventType
 import jdk.jfr.consumer.RecordedEvent
 import jdk.jfr.consumer.RecordingFile
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
@@ -15,7 +19,6 @@ import java.util.concurrent.atomic.AtomicInteger
  * @param commitValue Commit value
  * @param fileName File name
  */
-
 fun processFile(file: ByteArray,
                 connection: Connection,
                 commitValue: String,
@@ -39,17 +42,34 @@ fun processFile(file: ByteArray,
         createAndInsertStatements(eventType, connection, insertStatements, validColumns)
     }
 
-    val index = AtomicInteger(0)
+    val idx = AtomicInteger(0)
+    val batchSize = 10000
     // Read all events from the file and insert them into the database
     val events = RecordingFile.readAllEvents(tempFile.toPath())
-    events.forEachIndexed { i, event ->
-        val progress = (i + 1) * 100 / events.size
-        print("Processing event $i of ${events.size} ")
-        printProgressBar(progress)
+    val totalEvents = events.size
+    runBlocking {
+        events.chunked(batchSize).forEachIndexed { batchIndex, batch ->
+            launch {
+                batch.forEachIndexedParallel { index, event ->
+                    val overallIndex = batchIndex * batchSize + index
+                    val progress = (overallIndex + 1) * 100 / totalEvents
+                    print("Processing event $overallIndex of $totalEvents ")
+                    printProgressBar(progress)
 
-        processEvent(event, validColumns, insertStatements, commitValue, fileName, index, connection)
+                    processEvent(event, validColumns, insertStatements, commitValue, fileName, idx, connection)
+                }
+                insertStatements.values.forEach { statement ->
+                    statement.executeBatch()
+                }
+                connection.commit()
+            }
+        }
     }
-    insertStatements.values.forEach { it.executeBatch() }
+
+    insertStatements.values.forEach { statement ->
+        statement.executeBatch()
+        connection.commit()
+    }
 
     connection.commit()
     connection.autoCommit = true // End transaction
@@ -110,7 +130,7 @@ private fun processEvent(
         statement.setObject(i++, event.getValue(columnName))
     }
     statement.addBatch()
-    if (index.incrementAndGet() % 1000 == 0) {
+    if (index.incrementAndGet() % 10000 == 0) {
         statement.executeBatch()
         connection.commit()
     }
@@ -134,26 +154,27 @@ private fun createAndInsertStatements(
     val columnNames = eventType.fields
         .filter { it.name != "startTime" && it.typeName in setOf("double", "long", "int", "float", "short", "byte") }
     val columnNamesQuery = columnNames.joinToString(", ") { "${it.name} ${if (it.typeName == "int" || it.typeName == "short" || it.typeName == "byte") "INTEGER" else "REAL"}" }
-    if (columnNames.isNotEmpty()) {
-        // The replace is necessary otherwise the table name is not valid because it would select the jdk database
-        val tableName = eventType.name.replace(".", "_")
-
-        // The replace is necessary because the column name cannot be "index"
-        val createTableQuery =
-            "CREATE TABLE IF NOT EXISTS $tableName (id_pk INTEGER PRIMARY KEY, commit_value TEXT, file TEXT, ${
-                columnNamesQuery.replace(
-                    "index",
-                    "idx"
-                )
-            })"
-        connection.createStatement().executeUpdate(createTableQuery)
-        val insertQuery = "INSERT INTO $tableName (commit_value, file, ${
-            columnNames.joinToString(", ") { it.name }.replace("index", "idx")
-        }) VALUES (?, ?, ${columnNames.joinToString { "?" }})"
-
-        insertStatements[tableName] = connection.prepareStatement(insertQuery)
-        validColumns[eventType.name] = columnNames.map { it.name }
+    if (columnNames.isEmpty()) {
+        return
     }
+    // The replace is necessary otherwise the table name is not valid because it would select the jdk database
+    val tableName = eventType.name.replace(".", "_")
+
+    // The replace is necessary because the column name cannot be "index"
+    val createTableQuery =
+        "CREATE TABLE IF NOT EXISTS $tableName (id_pk INTEGER PRIMARY KEY, commit_value TEXT, file TEXT, ${
+            columnNamesQuery.replace(
+                "index",
+                "idx"
+            )
+        })"
+    connection.createStatement().executeUpdate(createTableQuery)
+    val insertQuery = "INSERT INTO $tableName (commit_value, file, ${
+        columnNames.joinToString(", ") { it.name }.replace("index", "idx")
+    }) VALUES (?, ?, ${columnNames.joinToString { "?" }})"
+
+    insertStatements[tableName] = connection.prepareStatement(insertQuery)
+    validColumns[eventType.name] = columnNames.map { it.name }
 }
 
 /***
@@ -162,7 +183,13 @@ private fun createAndInsertStatements(
  * @param databaseName Database name
  */
 fun databaseConnection(databaseName: String): Connection? {
-    val databaseFileName = "/databases/$databaseName.db"
+    // Create the databases directory if not exist
+    val databasesDirectory = File("./databases")
+    if (!databasesDirectory.exists()) {
+        databasesDirectory.mkdirs()
+    }
+
+    val databaseFileName = "./databases/$databaseName.db"
     val url = "jdbc:sqlite:$databaseFileName"
     var connection: Connection? = null
     try {
@@ -173,4 +200,16 @@ fun databaseConnection(databaseName: String): Connection? {
         e.printStackTrace()
     }
     return null
+}
+
+/*** This function processes the events in parallel.
+ *
+ * @param action Action to perform
+ */
+suspend fun <T> Iterable<T>.forEachIndexedParallel(action: suspend (index: Int, T) -> Unit) {
+    coroutineScope {
+        mapIndexed { index, value ->
+            async { action(index, value) }
+        }.forEach { it.await() }
+    }
 }

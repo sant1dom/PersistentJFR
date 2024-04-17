@@ -13,6 +13,7 @@ def plot_graph(selected_table, selected_column, columns):
 
     # Create DataFrame
     columns = ['id_pk', 'commit_value', 'file'] + columns
+    print(len(rows))
     df = pd.DataFrame(rows, columns=columns)
 
     # Plot the graph
@@ -21,8 +22,6 @@ def plot_graph(selected_table, selected_column, columns):
 
     fig.show()
 
-    # Close connection
-    conn.close()
 
 # GUI
 def update_columns_combobox(event):
