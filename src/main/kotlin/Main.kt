@@ -157,10 +157,10 @@ private fun createAndInsertStatements(
     if (columnNames.isEmpty()) {
         return
     }
-    // The replace is necessary otherwise the table name is not valid because it would select the jdk database
+    // The replacement is necessary otherwise the table name is not valid because it would select the jdk database
     val tableName = eventType.name.replace(".", "_")
 
-    // The replace is necessary because the column name cannot be "index"
+    // The replacement is necessary because the column name cannot be "index"
     val createTableQuery =
         "CREATE TABLE IF NOT EXISTS $tableName (id_pk INTEGER PRIMARY KEY, commit_value TEXT, file TEXT, ${
             columnNamesQuery.replace(
@@ -191,16 +191,59 @@ fun databaseConnection(databaseName: String): Connection? {
 
     val databaseFileName = "./databases/$databaseName.db"
     val url = "jdbc:sqlite:$databaseFileName"
-    var connection: Connection? = null
+    val connection: Connection?
     try {
         connection = DriverManager.getConnection(url)
-        println("Database connection successful")
         return connection
     } catch (e: Exception) {
         e.printStackTrace()
     }
     return null
 }
+
+/***
+ * This function retrieves all the events in the database.
+ *
+ * @param connection Database connection
+ */
+fun getAllEvents(connection: Connection): MutableList<String> {
+    val statement =
+        connection.prepareStatement("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+
+    val resultSet = statement.executeQuery()
+
+    val events = mutableListOf<String>()
+
+    while (resultSet.next()) {
+        events.add(resultSet.getString("name"))
+    }
+    return events
+}
+
+/***
+ * This function retrieves all the columns for a given event.
+ *
+ * @param connection Database connection
+ * @param event Event name
+ */
+fun getColumnsForEvent(
+    connection: Connection,
+    event: String
+): MutableList<String> {
+    val statement = connection.prepareStatement("PRAGMA table_info($event)")
+
+    val resultSet = statement.executeQuery()
+
+    val columns = mutableListOf<String>()
+    while (resultSet.next()) {
+        val columnName = resultSet.getString("name")
+        if (columnName != "id_pk" && columnName != "commit_value" && columnName != "file") {
+            columns.add(columnName)
+        }
+    }
+    return columns
+}
+
 
 /*** This function processes the events in parallel.
  *
