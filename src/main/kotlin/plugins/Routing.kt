@@ -29,6 +29,7 @@ fun Application.configureRouting(args: Array<String>) {
             val multipartData = call.receiveMultipart()
             val fileBytes: MutableList<ByteArray> = mutableListOf()
             var commitValue = ""
+            var date = ""
             val fileNames: MutableList<String> = mutableListOf()
 
             multipartData.forEachPart { part ->
@@ -43,7 +44,11 @@ fun Application.configureRouting(args: Array<String>) {
 
                     is PartData.FormItem -> {
                         println("Form field: ${part.name} = ${part.value}")
-                        commitValue = part.value
+                        if (part.name == "commitValue") {
+                            commitValue = part.value
+                        } else if (part.name == "date") {
+                            date = part.value
+                        }
                     }
 
                     else -> {
@@ -56,7 +61,7 @@ fun Application.configureRouting(args: Array<String>) {
             val connection = databaseConnection(args[0]) ?: return@post call.respondText("Error: could not connect to the database", status = HttpStatusCode.InternalServerError)
 
             fileBytes.forEachIndexed { index, file ->
-                processFile(file, connection, commitValue, fileNames[index])
+                processFile(file, connection, commitValue, fileNames[index], date)
             }
             
             call.respondText("commit_value: $commitValue," +

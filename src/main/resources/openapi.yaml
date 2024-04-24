@@ -25,6 +25,9 @@ paths:
                                         format: binary
                                 commitValue:
                                     type: string
+                                date:
+                                    type: string
+                                    format: date-time
             responses:
                 '200':
                     description: File saved successfully

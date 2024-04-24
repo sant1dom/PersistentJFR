@@ -22,7 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger
 fun processFile(file: ByteArray,
                 connection: Connection,
                 commitValue: String,
-                fileName: String
+                fileName: String,
+                date: String
 ) {
     // Create a temporary file to read the data
     val tempFile = File.createTempFile("recording", ".jfr")
@@ -56,7 +57,7 @@ fun processFile(file: ByteArray,
                     print("Processing event $overallIndex of $totalEvents ")
                     printProgressBar(progress)
 
-                    processEvent(event, validColumns, insertStatements, commitValue, fileName, idx, connection)
+                    processEvent(event, validColumns, insertStatements, commitValue, fileName, idx, connection, date)
                 }
                 insertStatements.values.forEach { statement ->
                     statement.executeBatch()
@@ -111,7 +112,8 @@ private fun processEvent(
     commitValue: String,
     fileName: String,
     index: AtomicInteger,
-    connection: Connection
+    connection: Connection,
+    date: String
 ) {
     // Check if the event is among those of interest
     if (event.eventType.name !in validColumns.keys) {
@@ -125,7 +127,8 @@ private fun processEvent(
 
     statement.setString(1, commitValue)
     statement.setString(2, fileName)
-    var i = 3
+    statement.setString(3, date)
+    var i = 4
     for (columnName in columns) {
         statement.setObject(i++, event.getValue(columnName))
     }
@@ -162,16 +165,16 @@ private fun createAndInsertStatements(
 
     // The replacement is necessary because the column name cannot be "index"
     val createTableQuery =
-        "CREATE TABLE IF NOT EXISTS $tableName (id_pk INTEGER PRIMARY KEY, commit_value TEXT, file TEXT, ${
+        "CREATE TABLE IF NOT EXISTS $tableName (id_pk INTEGER PRIMARY KEY, commit_value TEXT, file TEXT, date TEXT, ${
             columnNamesQuery.replace(
                 "index",
                 "idx"
             )
         })"
     connection.createStatement().executeUpdate(createTableQuery)
-    val insertQuery = "INSERT INTO $tableName (commit_value, file, ${
+    val insertQuery = "INSERT INTO $tableName (commit_value, file, date,  ${
         columnNames.joinToString(", ") { it.name }.replace("index", "idx")
-    }) VALUES (?, ?, ${columnNames.joinToString { "?" }})"
+    }) VALUES (?, ?, ?, ${columnNames.joinToString { "?" }})"
 
     insertStatements[tableName] = connection.prepareStatement(insertQuery)
     validColumns[eventType.name] = columnNames.map { it.name }
@@ -237,7 +240,7 @@ fun getColumnsForEvent(
     val columns = mutableListOf<String>()
     while (resultSet.next()) {
         val columnName = resultSet.getString("name")
-        if (columnName != "id_pk" && columnName != "commit_value" && columnName != "file") {
+        if (columnName != "id_pk" && columnName != "commit_value" && columnName != "file" && columnName != "date") {
             columns.add(columnName)
         }
     }
