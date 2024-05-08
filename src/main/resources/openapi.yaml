@@ -28,6 +28,8 @@ paths:
                                 date:
                                     type: string
                                     format: date-time
+                                    pattern: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+                                    example: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
             responses:
                 '200':
                     description: File saved successfully

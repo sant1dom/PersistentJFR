@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 import plotly.express as px
 import sys
+from ttkwidgets.autocomplete import AutocompleteCombobox
 
 
 # Function to extract data and plot the violin graph
@@ -79,7 +80,7 @@ def update_columns_combobox(event, tables_combobox, columns_combobox, c):
     selected_table = tables_combobox.get()
     c.execute(f'PRAGMA table_info({selected_table})')
     columns = [row[1] for row in c.fetchall()][4:]  # Remove id, commit_value, and file columns
-    columns_combobox['values'] = columns
+    columns_combobox['completevalues'] = columns
     return columns
 
 
@@ -95,8 +96,8 @@ def plot_button_click(tables_combobox, columns_combobox, c, statistic=None, comm
 
 def main():
     root = tk.Tk()
-    window_height = 400
-    window_width = 400
+    window_height = 640
+    window_width = 480
 
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
@@ -106,7 +107,6 @@ def main():
 
     root.geometry("{}x{}+{}+{}".format(window_width, window_height, x_cordinate, y_cordinate))
     root.title("PersistentJFR Data Analysis")
-    root.resizable(False, False)
 
     # Connect to the database and retrieve table names
     conn = sqlite3.connect("./databases/" + sys.argv[1] + ".db")
@@ -136,13 +136,13 @@ def tab1(root, tables, tab_control, c):
     label.pack(pady=10)
 
     # Combobox to select tables
-    tables_combobox = ttk.Combobox(tab1_var, values=tables)
+    tables_combobox = AutocompleteCombobox(tab1_var, completevalues=tables)
     tables_combobox.pack(pady=10)
     tables_combobox.bind("<<ComboboxSelected>>",
                          lambda event: update_columns_combobox(event, tables_combobox, columns_combobox, c))
 
     # Combobox to select columns
-    columns_combobox = ttk.Combobox(tab1_var)
+    columns_combobox = AutocompleteCombobox(tab1_var)
     columns_combobox.pack(pady=5)
 
     # Button to draw the graph
@@ -164,27 +164,27 @@ def tab2(root, tables, tab_control, c):
     label.pack(pady=10)
 
     # Combobox to select tables
-    tables_combobox = ttk.Combobox(tab2_var, values=tables)
+    tables_combobox = AutocompleteCombobox(tab2_var, completevalues=tables)
     tables_combobox.pack(pady=10)
     tables_combobox.bind("<<ComboboxSelected>>",
                          lambda event: update_columns_combobox(event, tables_combobox, columns_combobox, c))
 
     # Combobox to select columns
-    columns_combobox = ttk.Combobox(tab2_var)
+    columns_combobox = AutocompleteCombobox(tab2_var)
     columns_combobox.pack(pady=5)
 
     # Combobox to select the statistic
-    statistic_combobox = ttk.Combobox(tab2_var, values=['mean', 'median', 'min', 'max'])
+    statistic_combobox = AutocompleteCombobox(tab2_var, completevalues=['mean', 'median', 'min', 'max'])
     statistic_combobox.pack(pady=5)
 
     # Combobox to select the starting commit value
     values = c.execute(f'SELECT DISTINCT commit_value FROM {tables[0]}').fetchall()
     values = [str(value[0]) for value in values]
-    commit_value_combobox1 = ttk.Combobox(tab2_var, values=values)
+    commit_value_combobox1 = AutocompleteCombobox(tab2_var, completevalues=values)
     commit_value_combobox1.pack(pady=5)
 
     # Combobox to select the ending commit value
-    commit_value_combobox2 = ttk.Combobox(tab2_var, values=values)
+    commit_value_combobox2 = AutocompleteCombobox(tab2_var, completevalues=values)
     commit_value_combobox2.pack(pady=5)
 
     # Button to draw the graph
